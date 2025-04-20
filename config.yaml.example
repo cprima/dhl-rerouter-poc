@@ -1,0 +1,24 @@
+email:
+  host: imap.example.com
+  port: 993
+  ssl: true
+  folders:
+    - INBOX
+    - INBOX/pending
+    - Einkauf
+  lookback_weeks: 4
+
+tracking_patterns:
+  DHL:
+    - '\bJJD\d{10,}\b'
+    - '\b0034\d{8,}\b'
+  Hermes:
+    - '\bHR\d{10}\b'
+  UPS:
+    - '\b1Z[0-9A-Z]{16}\b'
+  DPD:
+    - '\b0145\d{8}\b'
+  eBay Global:
+    - '\bEE\d{25}N\b'
+  GLS:
+    - '\b\d{11}\b'
