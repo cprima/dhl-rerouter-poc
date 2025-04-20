@@ -1,6 +1,7 @@
-# reroute_checker.py
+# dhl_rerouter_poc/reroute_checker.py
 
 import time
+import logging
 from datetime import datetime, timezone
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
@@ -16,19 +17,21 @@ from .selectors_dhlde import (
     delivery_status_selector,
     ALLOWED_DELIVERY_OPTION_KEYS,
 )
+from .utils import parse_dhl_date
+
+LOG = logging.getLogger(__name__)
 
 def check_reroute_availability(tracking_number: str, zip_code: str, timeout: int = 20) -> dict:
     """
-    Scrapes DHL for the given tracking_number and zip_code,
-    returning a dict with keys:
+    Scrapes DHL and returns a dict with:
       - tracking_number
       - delivered (bool)
-      - delivery_date (str or None)
+      - delivery_date (ISO str or raw)
       - delivery_status (str or None)
-      - delivery_options (list of allowed option keys)
-      - shipment_history (list of history entries)
+      - delivery_options (list[str])
+      - shipment_history (list[str])
       - custom_dropoff_input_present (bool)
-      - protocol { timestamp, status ('success'|'error'), errors (list) }
+      - protocol { timestamp, status, errors }
     """
     result = {
         "tracking_number": tracking_number,
@@ -68,16 +71,25 @@ def check_reroute_availability(tracking_number: str, zip_code: str, timeout: int
         except Exception as e:
             result["protocol"]["errors"].append(f"delivery_status: {e}")
 
-        # estimated delivery date
+        # estimated delivery date (raw)
+        raw_date = None
         try:
-            result["delivery_date"] = driver.find_element(By.XPATH, DELIVERY_DATE).text.strip()
+            raw_date = driver.find_element(By.XPATH, DELIVERY_DATE).text.strip()
+            iso = parse_dhl_date(raw_date)
+            if iso:
+                result["delivery_date"] = iso
+                LOG.debug("Parsed DHL date '%s' → %s", raw_date, iso)
+            else:
+                result["delivery_date"] = raw_date
+                LOG.warning("Could not parse DHL date '%s'", raw_date)
         except Exception as e:
             result["protocol"]["errors"].append(f"delivery_date: {e}")
 
         # delivered?
         try:
             for el in driver.find_elements(By.XPATH, DELIVERED_TEXTS):
-                if "delivered" in el.text.lower() or "zustellt" in el.text.lower():
+                txt = el.text.lower()
+                if "delivered" in txt or "zustellt" in txt:
                     result["delivered"] = True
                     break
         except Exception as e:
@@ -102,9 +114,9 @@ def check_reroute_availability(tracking_number: str, zip_code: str, timeout: int
         # shipment history
         try:
             for entry in driver.find_elements(By.CSS_SELECTOR, SHIPMENT_HISTORY_ENTRY):
-                text = entry.text.strip()
-                if text:
-                    result["shipment_history"].append(text)
+                txt = entry.text.strip()
+                if txt:
+                    result["shipment_history"].append(txt)
         except Exception as e:
             result["protocol"]["errors"].append(f"shipment_history: {e}")
 
