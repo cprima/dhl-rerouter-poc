@@ -101,7 +101,12 @@ def run(
             carrier_timeout = timeout if timeout is not None else carrier_cfg.get("timeout", 20)
 
             # --- Tracking info (via handler) ---
-            info = carrier_handler.check_reroute_availability(code, carrier_zip, timeout=carrier_timeout)
+            info = carrier_handler.check_reroute_availability(
+                code,
+                carrier_zip,
+                timeout=carrier_timeout,
+                selenium_headless=carrier_headless
+            )
             shipment.tracking = ShipmentTrackingInfo(
                 status=info.get("delivery_status", "unknown"),
                 delivered=info.get("delivered", False),

@@ -97,6 +97,19 @@ uv sync
 
 ## Configuration
 
+> **Important:** Email credentials (user and password) are never stored in config files. Instead, set them via environment variables `MAILBOX_USER` and `MAILBOX_PASS`, typically in a `.env` file at the project root. See `.env.example` for the required format.
+
+### Test Configuration
+
+To run tests, you need a test configuration file:
+
+1. Copy `config_test.yaml.example` to `config_test.yaml`.
+2. Fill in the required values for your test environment (safe test credentials only). **Do not add your email username or password here.**
+3. Set your email credentials in a `.env` file using `MAILBOX_USER` and `MAILBOX_PASS`.
+4. `config_test.yaml` is gitignored and should never be committed.
+5. Tests will load `config_test.yaml` for their configuration, and always read credentials from the environment.
+
+
 1. Copy and fill in your credentials:
    ```bash
    cp .env.example .env

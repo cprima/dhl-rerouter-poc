@@ -30,8 +30,13 @@ class DHLCarrier(CarrierBase):
         self,
         tracking_number: str,
         zip_code: str,
-        timeout: int = 20
+        timeout: int = 20,
+        selenium_headless: bool = False
     ) -> dict:
+        """
+        Check if reroute is available for a shipment using Selenium.
+        Honors headless mode from config.
+        """
         result = {
             "tracking_number": tracking_number,
             "delivered": False,
@@ -52,6 +57,11 @@ class DHLCarrier(CarrierBase):
             f"piececode={tracking_number}&zip={zip_code}&lang=en"
         )
         options = uc.ChromeOptions()
+        if selenium_headless:
+            options.add_argument("--headless")
+            LOG.info("Launching Selenium in headless mode for check_reroute_availability.")
+        else:
+            LOG.info("Launching Selenium in visible mode for check_reroute_availability.")
         options.add_argument("--lang=en")
         options.add_argument("--incognito")
         driver = uc.Chrome(options=options)
@@ -130,6 +140,20 @@ class DHLCarrier(CarrierBase):
         selenium_headless: bool = False,
         timeout: int = 20
     ) -> bool:
+        """
+        Execute the shipment rerouting process using Selenium.
+
+        Args:
+            tracking_number (str): The tracking number of the shipment.
+            zip_code (str): The zip code of the shipment.
+            custom_location (str): The custom location for the shipment.
+            highlight_only (bool, optional): Whether to only highlight the confirm button. Defaults to True.
+            selenium_headless (bool, optional): Whether to run Selenium in headless mode. Defaults to False.
+            timeout (int, optional): The timeout for the Selenium driver. Defaults to 20.
+
+        Returns:
+            bool: Whether the rerouting process was successful.
+        """
         url = (
             f"https://www.dhl.de/en/privatkunden/"
             f"pakete-empfangen/verfolgen.html?"
@@ -138,6 +162,9 @@ class DHLCarrier(CarrierBase):
         options = uc.ChromeOptions()
         if selenium_headless:
             options.add_argument("--headless")
+            LOG.info("Launching Selenium in headless mode for reroute_shipment.")
+        else:
+            LOG.info("Launching Selenium in visible mode for reroute_shipment.")
         options.add_argument("--lang=en")
         options.add_argument("--incognito")
         driver = uc.Chrome(options=options)
