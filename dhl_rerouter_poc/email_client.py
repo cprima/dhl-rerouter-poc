@@ -5,10 +5,17 @@ import email
 from datetime import datetime, timedelta
 from .parser import safe_decode, strip_html
 
+import socket
+socket.setdefaulttimeout(15)  # Explicit timeout for all IMAP operations (seconds)
+
 import logging
 logger = logging.getLogger(__name__)
 
 class ImapEmailClient:
+    """
+    IMAP email client with robust error handling and explicit timeouts.
+    All IMAP operations are subject to a global socket timeout (default: 15 seconds).
+    """
     def __init__(self, cfg: dict):
         self.host     = cfg["host"]
         self.port     = cfg["port"]
