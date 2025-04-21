@@ -3,6 +3,13 @@ Carrier base interface for pluggable carrier support.
 """
 from abc import ABC, abstractmethod
 from typing import Any, Dict
+from dataclasses import dataclass, field
+
+@dataclass
+class StepResult:
+    status: str  # 'success', 'error', etc.
+    data: dict | None = None
+    errors: list[str] = field(default_factory=list)
 
 class CarrierBase(ABC):
     carrier_name: str

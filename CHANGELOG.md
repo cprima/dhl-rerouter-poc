@@ -1,5 +1,24 @@
 # Changelog
 
+## [v0.3.0] - 2025-04-21
+### Major Features & Improvements
+- **Unified StepResult for carrier operations:** All carrier methods now return a structured `StepResult` dataclass, enabling robust, model-driven error handling and consistent result reporting across the workflow.
+- **Model-driven workflow update:** The main workflow now accesses all tracking and reroute results via `StepResult.data`, improving type safety and future extensibility.
+- **Workflow-wide run_id traceability:** All major workflow steps and log entries now include a unique `run_id`, enabling end-to-end traceability and cross-module log correlation for every shipment rerouting automation run.
+- **Logging refactor:** All modules now use module-level loggers (`logger = logging.getLogger(__name__)`), ensuring consistent, filterable, and maintainable log output. Structured "Going to..." and "Finished..." messages are present at key workflow steps, always including the `run_id` where available.
+- **Unified configuration:** Centralized configuration loading, typed config, and dynamic CLI help defaults. CLI/config precedence is now consistent and runtime options are improved.
+- **Testing & documentation:** Added parametrized workflow tests and improved documentation for config and workflow data model.
+
+### Bug Fixes & Refactoring
+- Removed obsolete and duplicate logic in `DHLCarrier.reroute_shipment`, ensuring variables are always properly initialized and eliminating the `url` reference error.
+- Improved propagation of errors and logging throughout reroute and tracking logic.
+- Ensured Pydantic compatibility for error reporting by wrapping StepResult errors in a protocol dictionary.
+- Fixed logging inconsistencies and removed hardcoded logger names.
+- Improved Selenium and configuration handling for better test/prod consistency.
+- Ensured all modules follow Python logging best practices.
+
+---
+
 ## [v0.2.0-alpha] - 2025-04-21
 ### Major Features & Refactorings
 - **Unified Workflow Data Model:** Introduced a Pydantic-based model (`ShipmentLifecycle` and related classes) to represent the entire shipment lifecycle, enabling type safety, validation, and future extensibility (multi-carrier, richer state).
