@@ -6,25 +6,23 @@ from datetime import datetime, timedelta
 from caldav import DAVClient
 from caldav.objects import Calendar
 
-from .config import load_config
 
 LOG = logging.getLogger(__name__)
 
-def should_reroute(tracking_number: str, delivery_date: str) -> bool:
+def should_reroute(tracking_number: str, delivery_date: str, config: dict) -> bool:
     """
     Return True if we should reroute this shipment,
     based on whether the user is 'away' on the given delivery_date.
     """
 
-    cfg     = load_config()
-    cal_cfg = cfg.get("calendar", {})
+    cal_cfg = config.get("calendar", {})
     if not cal_cfg.get("enabled", False):
         return True
 
     url       = cal_cfg["url"]             # full CalDAV collection URL
     lookahead = cal_cfg.get("lookahead_days", 1)
-    user      = cfg["email"]["user"]
-    pwd       = cfg["email"]["password"]
+    user      = config["email"]["user"]
+    pwd       = config["email"]["password"]
 
     # parse the delivery_date ISO string
     try:
