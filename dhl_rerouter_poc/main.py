@@ -60,44 +60,50 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
             success = reroute_shipment(code, zip_code, custom_location, highlight_only, selenium_headless, timeout)
             print(f"  → reroute {'✅' if success else '❌'}")
 
-if __name__ == "__main__":
+def main():
+    config = load_config()
+    weeks_default = config.get("email", {}).get("lookback_weeks")
+    zip_default = config.get("dhl", {}).get("zip")
+    location_default = config.get("dhl", {}).get("reroute_location")
+    highlight_default = config.get("dhl", {}).get("highlight_only", True)
+    selenium_headless_default = config.get("dhl", {}).get("selenium_headless", False)
+    timeout_default = config.get("dhl", {}).get("timeout", 20)
+
     p = argparse.ArgumentParser()
     p.add_argument(
         "--weeks", type=int,
-        help="Override lookback period (weeks back to search emails; overrides config if set)"
+        help=f"Override lookback period (weeks back to search emails; overrides config if set) [default: {weeks_default}]"
     )
     p.add_argument(
         "--zip", dest="zip_code", required=False,
-        help="Postal code for DHL tracking page (overrides config if set)"
+        help=f"Postal code for DHL tracking page (overrides config if set) [default: {zip_default}]"
     )
     p.add_argument(
         "--location", dest="custom_location", required=False,
-        help="Custom drop‑off location text (overrides config if set)"
+        help=f"Custom drop‑off location text (overrides config if set) [default: {location_default}]"
     )
-    config = load_config()
-    # Set argparse defaults from config
     p.set_defaults(
-        weeks=config.get("email", {}).get("lookback_weeks"),
-        zip_code=config.get("dhl", {}).get("zip"),
-        custom_location=config.get("dhl", {}).get("reroute_location"),
-        highlight_only=config.get("dhl", {}).get("highlight_only", True),
-        selenium_headless=config.get("dhl", {}).get("selenium_headless", False),
-        timeout=config.get("dhl", {}).get("timeout", 20)
+        weeks=weeks_default,
+        zip_code=zip_default,
+        custom_location=location_default,
+        highlight_only=highlight_default,
+        selenium_headless=selenium_headless_default,
+        timeout=timeout_default
     )
     p.add_argument(
-        "--highlight-only", action="store_true", help="Highlight only, do not click confirm (overrides config)"
+        "--highlight-only", action="store_true", help=f"Highlight only, do not click confirm (overrides config) [default: {highlight_default}]"
     )
     p.add_argument(
-        "--selenium-headless", action="store_true", help="Run Selenium in headless mode (overrides config)"
+        "--selenium-headless", action="store_true", help=f"Run Selenium in headless mode (overrides config) [default: {selenium_headless_default}]"
     )
     p.add_argument(
-        "--timeout", type=int, help="Timeout for Selenium waits (overrides config)"
+        "--timeout", type=int, help=f"Timeout for Selenium waits (overrides config) [default: {timeout_default}]"
     )
     args = p.parse_args()
     # CLI always takes precedence if explicitly set
-    highlight_only = args.highlight_only if 'highlight_only' in args else config.get("dhl", {}).get("highlight_only", True)
-    selenium_headless = args.selenium_headless if 'selenium_headless' in args else config.get("dhl", {}).get("selenium_headless", False)
-    timeout = args.timeout if args.timeout is not None else config.get("dhl", {}).get("timeout", 20)
+    highlight_only = args.highlight_only if 'highlight_only' in args else highlight_default
+    selenium_headless = args.selenium_headless if 'selenium_headless' in args else selenium_headless_default
+    timeout = args.timeout if args.timeout is not None else timeout_default
     # Validate required parameters
     if not args.zip_code:
         raise ValueError("A zip code must be provided via --zip or config.yaml under dhl:zip")
@@ -106,3 +112,6 @@ if __name__ == "__main__":
     if args.weeks is None:
         raise ValueError("A lookback period must be provided via --weeks or config.yaml under email:lookback_weeks")
     run(args.weeks, args.zip_code, args.custom_location, highlight_only, selenium_headless, timeout)
+
+if __name__ == "__main__":
+    main()
