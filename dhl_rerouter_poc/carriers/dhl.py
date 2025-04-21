@@ -31,12 +31,17 @@ class DHLCarrier(CarrierBase):
         tracking_number: str,
         zip_code: str,
         timeout: int = 20,
-        selenium_headless: bool = False
+        selenium_headless: bool = False,
+        run_id: str | None = None
     ) -> dict:
         """
         Check if reroute is available for a shipment using Selenium.
         Honors headless mode from config.
         """
+        if run_id:
+            LOG.info("Going to check reroute availability for %s [run_id=%s]", tracking_number, run_id)
+        else:
+            LOG.info("Going to check reroute availability for %s", tracking_number)
         result = {
             "tracking_number": tracking_number,
             "delivered": False,
@@ -129,6 +134,10 @@ class DHLCarrier(CarrierBase):
             result["protocol"]["errors"].append(f"main_block: {e}")
         finally:
             driver.quit()
+        if run_id:
+            LOG.debug("Finished checking reroute availability for %s [run_id=%s]", tracking_number, run_id)
+        else:
+            LOG.debug("Finished checking reroute availability for %s", tracking_number)
         return result
 
     def reroute_shipment(
@@ -138,7 +147,8 @@ class DHLCarrier(CarrierBase):
         custom_location: str,
         highlight_only: bool = True,
         selenium_headless: bool = False,
-        timeout: int = 20
+        timeout: int = 20,
+        run_id: str | None = None
     ) -> bool:
         """
         Execute the shipment rerouting process using Selenium.
@@ -159,6 +169,10 @@ class DHLCarrier(CarrierBase):
             f"pakete-empfangen/verfolgen.html?"
             f"piececode={tracking_number}&zip={zip_code}&lang=en"
         )
+        if run_id:
+            LOG.info("Going to reroute shipment for %s [run_id=%s]", tracking_number, run_id)
+        else:
+            LOG.info("Going to reroute shipment for %s", tracking_number)
         options = uc.ChromeOptions()
         if selenium_headless:
             options.add_argument("--headless")
@@ -233,3 +247,7 @@ class DHLCarrier(CarrierBase):
             return False
         finally:
             driver.quit()
+        if run_id:
+            LOG.debug("Finished reroute shipment for %s [run_id=%s]", tracking_number, run_id)
+        else:
+            LOG.debug("Finished reroute shipment for %s", tracking_number)

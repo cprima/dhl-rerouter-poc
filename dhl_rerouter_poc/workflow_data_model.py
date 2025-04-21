@@ -4,6 +4,8 @@ workflow_data_model.py
 Unified, logistics-oriented Pydantic data model for the shipment rerouting automation workflow.
 See docs/workflow_data_model.md for full documentation and field rationale.
 """
+import uuid
+from uuid import UUID
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
@@ -66,6 +68,7 @@ class DeliveryInterventionResult(BaseModel):
     detail: Optional[str]
 
 class ShipmentLifecycle(BaseModel):
+    run_id: uuid.UUID = Field(default_factory=uuid.uuid4)
     provider: TransportProviderInfo
     notification: Optional[ConsignmentNotification] = None
     tracking: Optional[ShipmentTrackingInfo] = None

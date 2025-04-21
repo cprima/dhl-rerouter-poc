@@ -72,7 +72,8 @@ def run(
             if code in seen:
                 continue
             seen.add(code)
-            logger.info(f"Processing tracking code: %s (carrier: %s)", code, carrier)
+            logger.info(f"Going to process tracking code: %s (carrier: %s)", code, carrier)
+            # --- Build ShipmentLifecycle context ---
 
             # --- Build ShipmentLifecycle context ---
             shipment = ShipmentLifecycle(
@@ -172,6 +173,7 @@ def run(
             )
             debug_log_model(shipment, "after intervention")
             logger.info(f"  → reroute {'✅' if success else '❌'}")
+            logger.debug(f"Finished processing tracking code: %s (carrier: %s) [run_id=%s]", code, carrier, shipment.run_id)
 
 def main():
     config = load_config()

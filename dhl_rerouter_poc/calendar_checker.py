@@ -7,14 +7,19 @@ from caldav import DAVClient
 from caldav.objects import Calendar
 
 
-LOG = logging.getLogger(__name__)
+import logging
+logger = logging.getLogger(__name__)
 
-def should_reroute(tracking_number: str, delivery_date: str, config: dict) -> bool:
+def should_reroute(tracking_number: str, delivery_date: str, config: dict, run_id: str | None = None) -> bool:
     """
     Return True if we should reroute this shipment,
     based on whether the user is 'away' on the given delivery_date.
     """
 
+    if run_id:
+        logger.info("Going to check calendar for reroute: tracking_number=%s, delivery_date=%s [run_id=%s]", tracking_number, delivery_date, run_id)
+    else:
+        logger.info("Going to check calendar for reroute: tracking_number=%s, delivery_date=%s", tracking_number, delivery_date)
     cal_cfg = config.get("calendar", {})
     if not cal_cfg.get("enabled", False):
         return True
@@ -28,7 +33,7 @@ def should_reroute(tracking_number: str, delivery_date: str, config: dict) -> bo
     try:
         tgt_date = datetime.fromisoformat(delivery_date).date()
     except Exception as e:
-        LOG.error("Invalid delivery_date '%s': %s", delivery_date, e)
+        logger.error("Invalid delivery_date '%s': %s", delivery_date, e)
         return False
 
     start = tgt_date
@@ -44,13 +49,13 @@ def should_reroute(tracking_number: str, delivery_date: str, config: dict) -> bo
         for ev in events:
             title = getattr(ev.vobject_instance.vevent.summary, "value", "")
             if "away" in title.lower():
-                LOG.info("Found 'away' event '%s' on %s → reroute enabled", title, delivery_date)
+                logger.info("Found 'away' event '%s' on %s → reroute enabled", title, delivery_date)
                 return True
 
-        LOG.info("No 'away' events on %s → skip reroute", delivery_date)
+        logger.info("No 'away' events on %s → skip reroute", delivery_date)
         return False
 
     except Exception as e:
-        LOG.error("Calendar check failed for %s: %s", delivery_date, e)
+        logger.error("Calendar check failed for %s: %s", delivery_date, e)
         # on any error, do not reroute
         return False

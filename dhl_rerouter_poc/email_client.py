@@ -5,6 +5,9 @@ import email
 from datetime import datetime, timedelta
 from .parser import safe_decode, strip_html
 
+import logging
+logger = logging.getLogger(__name__)
+
 class ImapEmailClient:
     def __init__(self, cfg: dict):
         self.host     = cfg["host"]
@@ -15,7 +18,11 @@ class ImapEmailClient:
         self.folders  = cfg["folders"]
         self.lookback = cfg["lookback_weeks"]
 
-    def fetch_messages(self):
+    def fetch_messages(self, run_id: str | None = None):
+        if run_id:
+            logger.info("Going to fetch messages [run_id=%s]", run_id)
+        else:
+            logger.info("Going to fetch messages")
         mail = imaplib.IMAP4_SSL(self.host, self.port) if self.ssl else imaplib.IMAP4(self.host, self.port)
         mail.login(self.user, self.pwd)
         cutoff = (datetime.now() - timedelta(weeks=self.lookback)).strftime("%d-%b-%Y")
@@ -52,4 +59,8 @@ class ImapEmailClient:
                 msgs.append(body)
 
         mail.logout()
+        if run_id:
+            logger.debug("Finished fetching messages [run_id=%s]", run_id)
+        else:
+            logger.debug("Finished fetching messages")
         return msgs
