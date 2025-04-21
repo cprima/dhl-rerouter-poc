@@ -1,0 +1,66 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Installer logs
+pip-log.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+
+# Translation files
+*.mo
+*.pot
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# UV-managed venv
+.venv/
+
+# VS Code settings
+.vscode/
+
+# Environment variables
+.env
+.env.*.local
+
+# macOS
+.DS_Store
+
+# JetBrains IDEs
+.idea/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Backup files
+*~
+
+# Other
+node_modules/
+
+# local config
+config.yaml
+config_test.yaml

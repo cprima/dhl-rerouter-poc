@@ -1,0 +1,43 @@
+email:
+  # user and password are loaded from environment variables:
+  #   MAILBOX_USER, MAILBOX_PASS
+  host: imap.example.com
+  port: 993
+  ssl: true
+  folders:
+    - INBOX
+    - INBOX/pending
+    - Einkauf
+  lookback_weeks: 4
+
+tracking_patterns:
+  DHL:
+    - '\bJJD\d{10,}\b'
+    - '\b0034\d{8,}\b'
+  Hermes:
+    - '\bHR\d{10}\b'
+  UPS:
+    - '\b1Z[0-9A-Z]{16}\b'
+  DPD:
+    - '\b0145\d{8}\b'
+  eBay Global:
+    - '\bEE\d{25}N\b'
+  GLS:
+    - '\b\d{11}\b'
+
+# at top‐level in your example config
+calendar:
+  enabled: true
+  url: "https://dav.mailbox.org/caldav/YOUR_CALDAV_PATH"
+  lookahead_days: 1
+
+carriers:
+  base:
+    selenium_headless: true
+    highlight_only: true # default for all carriers unless overridden
+    timeout: 20
+  DHL:
+    reroute_location: "MyAlternativeLocation"
+    zip: 12345
+    selenium_headless: true
+    highlight_only: true    # if true, elements are only highlighted—not clicked

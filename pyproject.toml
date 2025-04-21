@@ -1,0 +1,28 @@
+[project]
+name = "dhl-rerouter-poc"
+version = "0.1.0"
+requires-python = ">=3.13,<4.0"
+dependencies = [
+  "setuptools>=67.0.0",
+  "selenium",
+  "pyyaml",
+  "msal",
+  "requests",
+  "python-dotenv>=1.0.0",
+  "beautifulsoup4>=4.12.0",
+  "undetected-chromedriver>=3.5.5",  # Use latest version to address distutils deprecation
+
+  "tzdata",
+  "caldav>=0.9.1",
+  "pytest>=8.0.0",
+  "pytest-mock>=3.10.0",
+  "pydantic>=2.6.0",  # For unified workflow data model
+
+  "unittest-xml-reporting", # for advanced unittest support
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:undetected_chromedriver.*"
+]
+
