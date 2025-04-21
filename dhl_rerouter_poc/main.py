@@ -8,15 +8,15 @@ from .reroute_checker     import check_reroute_availability
 from .reroute_executor    import reroute_shipment
 from .config              import load_config
 
-def run(weeks: int = None, zip_code: str = None, custom_location: str = None, highlight_only: bool = True, selenium_headless: bool = False, timeout: int = 20):
-    client = ImapEmailClient()
+def run(weeks: int = None, zip_code: str = None, custom_location: str = None, highlight_only: bool = True, selenium_headless: bool = False, timeout: int = 20, config: dict = None):
+    client = ImapEmailClient(config["email"])
     if weeks:
         client.lookback = weeks
     bodies = client.fetch_messages()
 
     seen = set()
     for body in bodies:
-        codes = extract_tracking_codes(body)
+        codes = extract_tracking_codes(body, config["tracking_patterns"])
         for code, carrier in sorted(codes.items()):
             if code in seen:
                 continue
@@ -43,7 +43,7 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
                 print("  → no delivery_date parsed; skipping calendar check")
                 continue
             print(f"  → checking calendar for delivery_date={date_iso}")
-            should = should_reroute(code, date_iso)
+            should = should_reroute(code, date_iso, config)
             print(f"  → should_reroute returned {should}")
             if not should:
                 print(f"  → skipped by calendar (delivery_date={date_iso})")

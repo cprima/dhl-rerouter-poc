@@ -3,12 +3,10 @@
 import imaplib
 import email
 from datetime import datetime, timedelta
-from .config import load_config
 from .parser import safe_decode, strip_html
 
 class ImapEmailClient:
-    def __init__(self, cfg=None):
-        cfg = cfg or load_config()["email"]
+    def __init__(self, cfg: dict):
         self.host     = cfg["host"]
         self.port     = cfg["port"]
         self.ssl      = cfg.get("ssl", True)
