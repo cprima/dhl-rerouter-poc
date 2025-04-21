@@ -105,18 +105,49 @@ uv sync
 
 ## Usage
 
-Run the main workflow:
+You can run the main workflow with all arguments, or rely on config.yaml for defaults. CLI arguments always take precedence over config.yaml values.
+
+### With explicit CLI arguments (overrides config):
 ```bash
 uv run -- python -m dhl_rerouter_poc.main \
   --weeks 2 \
   --zip 12345 \
-  --location "My Office"
+  --location "My Office" \
+  --highlight-only \
+  --selenium-headless \
+  --timeout 30
 ```
-or, after activating the venv:
+
+### Using config.yaml values (omit any or all arguments):
+```bash
+uv run -- python -m dhl_rerouter_poc.main
+```
+
+You can also override just one or two arguments:
+```bash
+uv run -- python -m dhl_rerouter_poc.main --zip 38448 --highlight-only
+```
+
+**Parameter Precedence:**
+- If a CLI argument is provided, it overrides the value in config.yaml.
+- If a CLI argument is omitted, the value from config.yaml is used.
+- If neither is provided, the script will raise an error for required parameters.
+
+**Configurable Parameters:**
+| CLI Argument         | Config Key                        | Description                                             | Default (if any)         |
+|---------------------|-----------------------------------|---------------------------------------------------------|--------------------------|
+| `--weeks`           | `email.lookback_weeks`            | Lookback period in weeks for email search               | Required                 |
+| `--zip`             | `dhl.zip`                         | Postal code for DHL tracking page                       | Required                 |
+| `--location`        | `dhl.reroute_location`            | Custom drop‑off location text                           | Required                 |
+| `--highlight-only`  | `dhl.highlight_only`              | Only highlight the confirm button, do not click         | `True`                   |
+| `--selenium-headless`| `dhl.selenium_headless`           | Run Selenium browser in headless mode                   | `False`                  |
+| `--timeout`         | `dhl.timeout`                     | Timeout for Selenium waits (seconds)                    | `20`                     |
+
+Or, after activating the venv:
 ```bash
 .\.venv\Scripts\Activate.ps1    # Windows PowerShell
 # or `source .venv/bin/activate` on macOS/Linux
-python -m dhl_rerouter_poc.main --weeks 2 --zip 12345 --location "My Office"
+python -m dhl_rerouter_poc.main
 ```
 
 ## Project Layout

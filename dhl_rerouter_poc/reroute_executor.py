@@ -21,16 +21,14 @@ def reroute_shipment(
     tracking_number: str,
     zip_code: str,
     custom_location: str,
+    highlight_only: bool = True,
+    selenium_headless: bool = False,
     timeout: int = 20
 ) -> bool:
     """
     Navigate DHL page, always perform steps 1–4, then in step 5 (confirm button)
     honor highlight_only: if True, only highlight; if False, click.
     """
-    cfg = load_config().get("dhl", {})
-    highlight_only = cfg.get("highlight_only", True)
-    headless      = cfg.get("selenium_headless", False)
-
     url = (
         f"https://www.dhl.de/en/privatkunden/"
         f"pakete-empfangen/verfolgen.html?"
@@ -38,7 +36,7 @@ def reroute_shipment(
     )
 
     options = uc.ChromeOptions()
-    if headless:
+    if selenium_headless:
         options.add_argument("--headless")
     options.add_argument("--lang=en")
     options.add_argument("--incognito")
