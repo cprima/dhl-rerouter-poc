@@ -1,8 +1,6 @@
 import re
-from .config import load_config
 
-def extract_tracking_codes(text):
-    patterns = load_config()["tracking_patterns"]
+def extract_tracking_codes(text: str, patterns: dict) -> dict:
     found = {}
     for carrier, pats in patterns.items():
         for pat in pats:
