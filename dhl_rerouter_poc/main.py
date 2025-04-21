@@ -72,14 +72,18 @@ if __name__ == "__main__":
         help="Postal code for DHL tracking page (overrides config if set)"
     )
     p.add_argument(
-        "--location", dest="custom_location", required=True,
-        help="Custom drop‑off location text"
+        "--location", dest="custom_location", required=False,
+        help="Custom drop‑off location text (overrides config if set)"
     )
     args = p.parse_args()
     # Load config and use zip from config if not provided via CLI
     config = load_config()
     config_zip = config.get("dhl", {}).get("zip")
+    config_location = config.get("dhl", {}).get("reroute_location")
     zip_code = args.zip_code if args.zip_code else config_zip
+    custom_location = args.custom_location if args.custom_location else config_location
     if not zip_code:
         raise ValueError("A zip code must be provided via --zip or config.yaml under dhl:zip")
-    run(args.weeks, zip_code, args.custom_location)
+    if not custom_location:
+        raise ValueError("A reroute location must be provided via --location or config.yaml under dhl:reroute_location")
+    run(args.weeks, zip_code, custom_location)
