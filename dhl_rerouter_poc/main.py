@@ -7,6 +7,14 @@ from .calendar_checker    import should_reroute
 from .reroute_checker     import check_reroute_availability
 from .reroute_executor    import reroute_shipment
 from .config              import load_config
+from .workflow_data_model import (
+    ShipmentLifecycle,
+    TransportProviderInfo,
+    ConsignmentNotification,
+    ShipmentTrackingInfo,
+    RecipientAvailability,
+    DeliveryInterventionResult,
+)
 
 def run(weeks: int = None, zip_code: str = None, custom_location: str = None, highlight_only: bool = True, selenium_headless: bool = False, timeout: int = 20, config: dict = None):
     client = ImapEmailClient(config["email"])
@@ -23,41 +31,78 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
             seen.add(code)
             print(f"{code} ({carrier})")
 
-            # skip non‑DHL carriers
-            if carrier != "DHL":
-                print("  → skipping non‑DHL carrier")
+            # --- Build ShipmentLifecycle context ---
+            shipment = ShipmentLifecycle(
+                provider=TransportProviderInfo(name=carrier, tracking_number=code),
+                notification=ConsignmentNotification(
+                    normalized_body=body[:4096],
+                    body_truncated=len(body) > 4096,
+                    # Optionally fill subject/sender/received_at if available from client
+                ),
+            )
+
+            # skip unsupported carriers (model-driven)
+            if not shipment.provider.is_supported():
+                print(f"  → skipping unsupported carrier: {carrier}")
                 continue
 
-            # scrape DHL page
+            # --- Tracking info ---
             info = check_reroute_availability(code, zip_code, timeout=timeout)
-            date_iso = info.get("delivery_date")
-            opts     = info.get("delivery_options", [])
-            errors   = info.get("protocol", {}).get("errors", [])
+            shipment.tracking = ShipmentTrackingInfo(
+                status=info.get("delivery_status", "unknown"),
+                delivered=info.get("delivered", False),
+                delivery_date=info.get("delivery_date"),
+                delivery_status=info.get("delivery_status"),
+                delivery_options=info.get("delivery_options", []),
+                shipment_history=info.get("shipment_history", []),
+                custom_dropoff_input_present=info.get("custom_dropoff_input_present", False),
+                protocol=info.get("protocol", {}),
+                last_checked=None,
+                status_code=None,
+            )
+            date_iso = shipment.tracking.delivery_date
+            opts     = shipment.tracking.delivery_options
+            errors   = shipment.tracking.protocol.get("errors", [])
 
             # debug: show any protocol errors
             if errors:
                 print(f"  ⚠️ encountered errors: {errors}")
 
-            # calendar-based decision
+            # --- Calendar-based decision ---
             if not date_iso:
                 print("  → no delivery_date parsed; skipping calendar check")
                 continue
             print(f"  → checking calendar for delivery_date={date_iso}")
             should = should_reroute(code, date_iso, config)
+            shipment.recipient_availability = RecipientAvailability(
+                delivery_date=date_iso,
+                is_away=not should,
+                overlapping_absences=[],  # Could be filled by should_reroute in future
+                sources_checked=[],
+            )
             print(f"  → should_reroute returned {should}")
             if not should:
                 print(f"  → skipped by calendar (delivery_date={date_iso})")
                 continue
 
-            # availability check
+            # --- Availability check ---
             if not opts:
                 print("  → no reroute options available")
                 continue
             print(f"  → available options: {opts}")
 
-            # execute reroute
+            # --- Execute reroute ---
             print(f"  → performing reroute (highlight_only={highlight_only})")
             success = reroute_shipment(code, zip_code, custom_location, highlight_only, selenium_headless, timeout)
+            shipment.intervention = DeliveryInterventionResult(
+                attempted=True,
+                success=success,
+                error=None if success else "reroute failed",
+                timestamp=None,
+                attempts=1,
+                status_code=200 if success else 500,
+                detail=None,
+            )
             print(f"  → reroute {'✅' if success else '❌'}")
 
 def main():
