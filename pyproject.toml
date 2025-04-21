@@ -10,7 +10,12 @@ dependencies = [
   "requests",
   "python-dotenv>=1.0.0",
   "beautifulsoup4>=4.12.0",
-  "undetected-chromedriver",
+  "undetected-chromedriver>=3.5.5",  # Use latest version to address distutils deprecation
+
   "tzdata",
   "caldav>=0.9.1",
+  "pytest>=8.0.0",
+  "pytest-mock>=3.10.0",
+  "unittest-xml-reporting", # for advanced unittest support
 ]
+
