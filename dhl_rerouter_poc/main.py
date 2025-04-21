@@ -23,6 +23,28 @@ from .workflow_data_model import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("dhl_rerouter")
 
+def reroute_shipment(
+    tracking_number: str,
+    zip_code: str,
+    custom_location: str,
+    highlight_only: bool = True,
+    selenium_headless: bool = False,
+    timeout: int = 20
+) -> bool:
+    """
+    Backward-compatible wrapper for reroute_shipment, for test mocking and legacy code.
+    Currently delegates to DHLCarrier. Update to support other carriers if needed.
+    """
+    handler = DHLCarrier()
+    return handler.reroute_shipment(
+        tracking_number,
+        zip_code,
+        custom_location,
+        highlight_only,
+        selenium_headless,
+        timeout
+    )
+
 def run(
     weeks: int | None = None,
     zip_code: str | None = None,
@@ -126,8 +148,13 @@ def run(
 
             # --- Execute reroute (via handler) ---
             logger.info(f"  → performing reroute (highlight_only={carrier_highlight})")
-            success = carrier_handler.reroute_shipment(
-                code, carrier_zip, carrier_location, carrier_highlight, carrier_headless, carrier_timeout
+            # Use main.reroute_shipment wrapper to allow test patching
+            from dhl_rerouter_poc import main as main_mod
+            success = main_mod.reroute_shipment(
+                code, carrier_zip, carrier_location,
+                carrier_highlight,
+                selenium_headless,
+                timeout
             )
             shipment.intervention = DeliveryInterventionResult(
                 attempted=True,
