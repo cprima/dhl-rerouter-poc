@@ -19,13 +19,23 @@ from .selectors_dhlde import (
 )
 from .utils import parse_dhl_date
 
-LOG = logging.getLogger(__name__)
+import logging
+logger = logging.getLogger(__name__)
 
 # DEPRECATED: Use DHLCarrier.check_reroute_availability instead.
 from dhl_rerouter_poc.carriers.dhl import DHLCarrier
 
-def check_reroute_availability(tracking_number: str, zip_code: str, timeout: int = 20) -> dict:
+def check_reroute_availability(tracking_number: str, zip_code: str, timeout: int = 20, run_id: str | None = None) -> dict:
     """
     Deprecated. Use DHLCarrier().check_reroute_availability instead.
     """
-    return DHLCarrier().check_reroute_availability(tracking_number, zip_code, timeout)
+    if run_id:
+        logger.info("Going to check reroute availability (wrapper) for %s [run_id=%s]", tracking_number, run_id)
+    else:
+        logger.info("Going to check reroute availability (wrapper) for %s", tracking_number)
+    result = DHLCarrier().check_reroute_availability(tracking_number, zip_code, timeout, run_id=run_id)
+    if run_id:
+        logger.debug("Finished check reroute availability (wrapper) for %s [run_id=%s]", tracking_number, run_id)
+    else:
+        logger.debug("Finished check reroute availability (wrapper) for %s", tracking_number)
+    return result
