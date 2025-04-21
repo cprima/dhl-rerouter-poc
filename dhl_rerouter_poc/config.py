@@ -7,6 +7,16 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
+def merge_carrier_config(base: dict, specific: dict) -> dict:
+    """
+    Merge base carrier config with carrier-specific overrides.
+    Carrier-specific keys take precedence.
+    """
+    merged = dict(base or {})
+    merged.update(specific or {})
+    return merged
+
+
 def load_config():
     config_path = Path(__file__).parent.parent / "config.yaml"
     if not config_path.exists():
@@ -23,4 +33,13 @@ def load_config():
 
     cfg["email"]["user"]     = user
     cfg["email"]["password"] = pwd
+
+    # Attach merged carrier configs for each carrier
+    carriers = cfg.get("carriers", {})
+    base_cfg = carriers.get("base", {})
+    cfg["carrier_configs"] = {}
+    for name, spec_cfg in carriers.items():
+        if name == "base":
+            continue
+        cfg["carrier_configs"][name] = merge_carrier_config(base_cfg, spec_cfg)
     return cfg

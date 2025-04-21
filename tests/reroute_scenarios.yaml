@@ -1,0 +1,16 @@
+- tracking_number: JJD000390018282329702
+  reroute_available: true
+  calendar_away: true
+  expected_reroute: true
+- tracking_number: JJD149160000010324577
+  reroute_available: false
+  calendar_away: false
+  expected_reroute: false
+- tracking_number: 00340434175967421417
+  reroute_available: false
+  calendar_away: false
+  expected_reroute: false
+- tracking_number: 00340434664895388034
+  reroute_available: false
+  calendar_away: false
+  expected_reroute: false
