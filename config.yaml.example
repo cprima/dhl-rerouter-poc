@@ -33,3 +33,4 @@ dhl:
   selenium_headless: true
   reroute_location: "MyAlternativeLocation"
   highlight_only: true    # ← new: if true, elements are only highlighted—not clicked
+  zip: 12345

@@ -68,12 +68,18 @@ if __name__ == "__main__":
         help="Override lookback period (weeks back to search emails)"
     )
     p.add_argument(
-        "--zip", dest="zip_code", required=True,
-        help="Postal code for DHL tracking page"
+        "--zip", dest="zip_code", required=False,
+        help="Postal code for DHL tracking page (overrides config if set)"
     )
     p.add_argument(
         "--location", dest="custom_location", required=True,
         help="Custom drop‑off location text"
     )
     args = p.parse_args()
-    run(args.weeks, args.zip_code, args.custom_location)
+    # Load config and use zip from config if not provided via CLI
+    config = load_config()
+    config_zip = config.get("dhl", {}).get("zip")
+    zip_code = args.zip_code if args.zip_code else config_zip
+    if not zip_code:
+        raise ValueError("A zip code must be provided via --zip or config.yaml under dhl:zip")
+    run(args.weeks, zip_code, args.custom_location)

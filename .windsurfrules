@@ -1,0 +1,17 @@
+1. My build system is uv (Python package manager)
+2. My testing framework is pytest
+3. Use Python 3.13+ features and syntax
+4. Use type hints consistently throughout the codebase
+5. Follow PEP8 style guide for all Python code
+6. Store sensitive credentials in .env and do not hardcode them
+7. Do not modify files in the .venv, .git, or docs directories
+8. Prioritize modular, readable, and maintainable code
+9. Use Selenium for all browser automation tasks
+10. Configuration should be managed via YAML files
+11. Log actions and errors for traceability, especially for automation steps
+12. When handling IMAP/email, avoid destructive operations (e.g., deleting emails)
+13. Prefer explicit over implicit behavior in automation and rerouting logic
+14. Do not use APIs or services outside IMAP, Selenium, and standard Python libraries unless explicitly approved
+15. Document any new modules or scripts in README.md
+16. Use Git for version control and do not modify files in the .git directory
+17. Use GitHub for code hosting and do not modify files in the .git directory
