@@ -6,8 +6,9 @@ import logging
 from .email_client        import ImapEmailClient
 from .parser              import extract_tracking_codes
 from .calendar_checker    import should_reroute
-from .reroute_checker     import check_reroute_availability
-from .reroute_executor    import reroute_shipment
+from dhl_rerouter_poc.carriers.base import CarrierBase
+from dhl_rerouter_poc.carriers.dhl import DHLCarrier
+import logging
 from .config              import load_config
 from .workflow_data_model import (
     ShipmentLifecycle,
@@ -22,20 +23,34 @@ from .workflow_data_model import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("dhl_rerouter")
 
-def run(weeks: int = None, zip_code: str = None, custom_location: str = None, highlight_only: bool = True, selenium_headless: bool = False, timeout: int = 20, config: dict = None):
+def run(
+    weeks: int | None = None,
+    zip_code: str | None = None,
+    custom_location: str | None = None,
+    highlight_only: bool = True,
+    selenium_headless: bool = False,
+    timeout: int = 20,
+    config: dict | None = None
+) -> None:
     client = ImapEmailClient(config["email"])
     if weeks:
         client.lookback = weeks
     bodies = client.fetch_messages()
 
-    seen = set()
+    seen: set[str] = set()
+    carrier_registry: dict[str, type[CarrierBase]] = {
+        "DHL": DHLCarrier,
+        # Add future carriers here
+    }
+    logger = logging.getLogger(__name__)
+    carrier_configs: dict = config.get("carrier_configs", {})
     for body in bodies:
         codes = extract_tracking_codes(body, config["tracking_patterns"])
         for code, carrier in sorted(codes.items()):
             if code in seen:
                 continue
             seen.add(code)
-            print(f"{code} ({carrier})")
+            logger.info(f"Processing tracking code: %s (carrier: %s)", code, carrier)
 
             # --- Build ShipmentLifecycle context ---
             shipment = ShipmentLifecycle(
@@ -48,13 +63,23 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
             )
             debug_log_model(shipment, "after init")
 
-            # skip unsupported carriers (model-driven)
-            if not shipment.provider.is_supported():
-                print(f"  → skipping unsupported carrier: {carrier}")
+            # skip unsupported carriers (model-driven + registry)
+            carrier_cls = carrier_registry.get(carrier)
+            if not shipment.provider.is_supported() or not carrier_cls:
+                logger.info("  → skipping unsupported carrier: %s", carrier)
                 continue
+            carrier_handler: CarrierBase = carrier_cls()
 
-            # --- Tracking info ---
-            info = check_reroute_availability(code, zip_code, timeout=timeout)
+            # --- Carrier config merge ---
+            carrier_cfg = carrier_configs.get(carrier, {})
+            carrier_zip = zip_code or carrier_cfg.get("zip")
+            carrier_location = custom_location or carrier_cfg.get("reroute_location")
+            carrier_highlight = highlight_only if highlight_only is not None else carrier_cfg.get("highlight_only", True)
+            carrier_headless = selenium_headless if selenium_headless is not None else carrier_cfg.get("selenium_headless", True)
+            carrier_timeout = timeout if timeout is not None else carrier_cfg.get("timeout", 20)
+
+            # --- Tracking info (via handler) ---
+            info = carrier_handler.check_reroute_availability(code, carrier_zip, timeout=carrier_timeout)
             shipment.tracking = ShipmentTrackingInfo(
                 status=info.get("delivery_status", "unknown"),
                 delivered=info.get("delivered", False),
@@ -72,15 +97,14 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
             opts     = shipment.tracking.delivery_options
             errors   = shipment.tracking.protocol.get("errors", [])
 
-            # debug: show any protocol errors
             if errors:
-                print(f"  ⚠️ encountered errors: {errors}")
+                logger.warning(f"  ⚠️ encountered errors: {errors}")
 
             # --- Calendar-based decision ---
             if not date_iso:
-                print("  → no delivery_date parsed; skipping calendar check")
+                logger.info("  → no delivery_date parsed; skipping calendar check")
                 continue
-            print(f"  → checking calendar for delivery_date={date_iso}")
+            logger.info(f"  → checking calendar for delivery_date={date_iso}")
             should = should_reroute(code, date_iso, config)
             shipment.recipient_availability = RecipientAvailability(
                 delivery_date=date_iso,
@@ -89,20 +113,22 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
                 sources_checked=[],
             )
             debug_log_model(shipment, "after calendar check")
-            print(f"  → should_reroute returned {should}")
+            logger.info(f"  → should_reroute returned {should}")
             if not should:
-                print(f"  → skipped by calendar (delivery_date={date_iso})")
+                logger.info(f"  → skipped by calendar (delivery_date={date_iso})")
                 continue
 
             # --- Availability check ---
             if not opts:
-                print("  → no reroute options available")
+                logger.info("  → no reroute options available")
                 continue
-            print(f"  → available options: {opts}")
+            logger.info(f"  → available options: {opts}")
 
-            # --- Execute reroute ---
-            print(f"  → performing reroute (highlight_only={highlight_only})")
-            success = reroute_shipment(code, zip_code, custom_location, highlight_only, selenium_headless, timeout)
+            # --- Execute reroute (via handler) ---
+            logger.info(f"  → performing reroute (highlight_only={carrier_highlight})")
+            success = carrier_handler.reroute_shipment(
+                code, carrier_zip, carrier_location, carrier_highlight, carrier_headless, carrier_timeout
+            )
             shipment.intervention = DeliveryInterventionResult(
                 attempted=True,
                 success=success,
@@ -113,16 +139,18 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
                 detail=None,
             )
             debug_log_model(shipment, "after intervention")
-            print(f"  → reroute {'✅' if success else '❌'}")
+            logger.info(f"  → reroute {'✅' if success else '❌'}")
 
 def main():
     config = load_config()
     weeks_default = config.get("email", {}).get("lookback_weeks")
-    zip_default = config.get("dhl", {}).get("zip")
-    location_default = config.get("dhl", {}).get("reroute_location")
-    highlight_default = config.get("dhl", {}).get("highlight_only", True)
-    selenium_headless_default = config.get("dhl", {}).get("selenium_headless", False)
-    timeout_default = config.get("dhl", {}).get("timeout", 20)
+    carrier_configs = config.get("carrier_configs", {})
+    dhl_cfg = carrier_configs.get("DHL", {})
+    zip_default = dhl_cfg.get("zip")
+    location_default = dhl_cfg.get("reroute_location")
+    highlight_default = dhl_cfg.get("highlight_only", True)
+    selenium_headless_default = dhl_cfg.get("selenium_headless", True)
+    timeout_default = dhl_cfg.get("timeout", 20)
 
     p = argparse.ArgumentParser()
     p.add_argument(
@@ -161,9 +189,9 @@ def main():
     timeout = args.timeout if args.timeout is not None else timeout_default
     # Validate required parameters
     if not args.zip_code:
-        raise ValueError("A zip code must be provided via --zip or config.yaml under dhl:zip")
+        raise ValueError("A zip code must be provided via --zip or config.yaml under carriers:DHL:zip")
     if not args.custom_location:
-        raise ValueError("A reroute location must be provided via --location or config.yaml under dhl:reroute_location")
+        raise ValueError("A reroute location must be provided via --location or config.yaml under carriers:DHL:reroute_location")
     if args.weeks is None:
         raise ValueError("A lookback period must be provided via --weeks or config.yaml under email:lookback_weeks")
     run(args.weeks, args.zip_code, args.custom_location, highlight_only, selenium_headless, timeout)
