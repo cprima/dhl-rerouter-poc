@@ -21,3 +21,8 @@ dependencies = [
   "unittest-xml-reporting", # for advanced unittest support
 ]
 
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:undetected_chromedriver.*"
+]
+

@@ -63,3 +63,4 @@ node_modules/
 
 # local config
 config.yaml
+config_test.yaml
