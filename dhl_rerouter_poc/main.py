@@ -1,6 +1,8 @@
 # dhl_rerouter_poc/main.py
 
 import argparse
+from .logging_utils import debug_log_model
+import logging
 from .email_client        import ImapEmailClient
 from .parser              import extract_tracking_codes
 from .calendar_checker    import should_reroute
@@ -15,6 +17,10 @@ from .workflow_data_model import (
     RecipientAvailability,
     DeliveryInterventionResult,
 )
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("dhl_rerouter")
 
 def run(weeks: int = None, zip_code: str = None, custom_location: str = None, highlight_only: bool = True, selenium_headless: bool = False, timeout: int = 20, config: dict = None):
     client = ImapEmailClient(config["email"])
@@ -40,6 +46,7 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
                     # Optionally fill subject/sender/received_at if available from client
                 ),
             )
+            debug_log_model(shipment, "after init")
 
             # skip unsupported carriers (model-driven)
             if not shipment.provider.is_supported():
@@ -60,6 +67,7 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
                 last_checked=None,
                 status_code=None,
             )
+            debug_log_model(shipment, "after tracking")
             date_iso = shipment.tracking.delivery_date
             opts     = shipment.tracking.delivery_options
             errors   = shipment.tracking.protocol.get("errors", [])
@@ -80,6 +88,7 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
                 overlapping_absences=[],  # Could be filled by should_reroute in future
                 sources_checked=[],
             )
+            debug_log_model(shipment, "after calendar check")
             print(f"  → should_reroute returned {should}")
             if not should:
                 print(f"  → skipped by calendar (delivery_date={date_iso})")
@@ -103,6 +112,7 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
                 status_code=200 if success else 500,
                 detail=None,
             )
+            debug_log_model(shipment, "after intervention")
             print(f"  → reroute {'✅' if success else '❌'}")
 
 def main():
