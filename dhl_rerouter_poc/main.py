@@ -109,14 +109,14 @@ def run(
                 selenium_headless=carrier_headless
             )
             shipment.tracking = ShipmentTrackingInfo(
-                status=info.get("delivery_status", "unknown"),
-                delivered=info.get("delivered", False),
-                delivery_date=info.get("delivery_date"),
-                delivery_status=info.get("delivery_status"),
-                delivery_options=info.get("delivery_options", []),
-                shipment_history=info.get("shipment_history", []),
-                custom_dropoff_input_present=info.get("custom_dropoff_input_present", False),
-                protocol=info.get("protocol", {}),
+                status=info.data.get("delivery_status", "unknown"),
+                delivered=info.data.get("delivered", False),
+                delivery_date=info.data.get("delivery_date"),
+                delivery_status=info.data.get("delivery_status"),
+                delivery_options=info.data.get("delivery_options", []),
+                shipment_history=info.data.get("shipment_history", []),
+                custom_dropoff_input_present=info.data.get("custom_dropoff_input_present", False),
+                protocol={"errors": info.errors},
                 last_checked=None,
                 status_code=None,
             )
@@ -228,7 +228,7 @@ def main():
         raise ValueError("A reroute location must be provided via --location or config.yaml under carriers:DHL:reroute_location")
     if args.weeks is None:
         raise ValueError("A lookback period must be provided via --weeks or config.yaml under email:lookback_weeks")
-    run(args.weeks, args.zip_code, args.custom_location, highlight_only, selenium_headless, timeout)
+    run(args.weeks, args.zip_code, args.custom_location, highlight_only, selenium_headless, timeout, config)
 
 if __name__ == "__main__":
     main()
