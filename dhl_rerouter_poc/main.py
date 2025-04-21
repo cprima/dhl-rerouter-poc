@@ -65,7 +65,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument(
         "--weeks", type=int,
-        help="Override lookback period (weeks back to search emails)"
+        help="Override lookback period (weeks back to search emails; overrides config if set)"
     )
     p.add_argument(
         "--zip", dest="zip_code", required=False,
@@ -86,4 +86,8 @@ if __name__ == "__main__":
         raise ValueError("A zip code must be provided via --zip or config.yaml under dhl:zip")
     if not custom_location:
         raise ValueError("A reroute location must be provided via --location or config.yaml under dhl:reroute_location")
-    run(args.weeks, zip_code, custom_location)
+    config_weeks = config.get("email", {}).get("lookback_weeks")
+    weeks = args.weeks if args.weeks is not None else config_weeks
+    if weeks is None:
+        raise ValueError("A lookback period must be provided via --weeks or config.yaml under email:lookback_weeks")
+    run(weeks, zip_code, custom_location)
