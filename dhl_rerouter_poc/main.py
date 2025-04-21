@@ -60,7 +60,7 @@ def run(weeks: int = None, zip_code: str = None, custom_location: str = None, hi
             success = reroute_shipment(code, zip_code, custom_location, highlight_only, selenium_headless, timeout)
             print(f"  → reroute {'✅' if success else '❌'}")
 
-if __name__ == "__main__":
+def main():
     p = argparse.ArgumentParser()
     p.add_argument(
         "--weeks", type=int,
@@ -106,3 +106,6 @@ if __name__ == "__main__":
     if args.weeks is None:
         raise ValueError("A lookback period must be provided via --weeks or config.yaml under email:lookback_weeks")
     run(args.weeks, args.zip_code, args.custom_location, highlight_only, selenium_headless, timeout)
+
+if __name__ == "__main__":
+    main()
