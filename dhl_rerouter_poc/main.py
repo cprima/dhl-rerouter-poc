@@ -4,10 +4,10 @@ import argparse
 import logging
 from .calendar_checker import should_reroute
 from .config import load_config
-from .email_client_imap import ImapEmailClient
-from .email_client_msgraph import EmailClientMsGraph
+from dhl_rerouter_poc.mail.email_client_imap import ImapEmailClient
+from dhl_rerouter_poc.mail.email_client_msgraph import EmailClientMsGraph
 from .logging_utils import debug_log_model
-from .parser import extract_tracking_codes
+from dhl_rerouter_poc.mail.parser import extract_tracking_codes, safe_decode
 from dhl_rerouter_poc.carriers.base import CarrierBase
 from dhl_rerouter_poc.carriers.dhl import DHLCarrier
 from .workflow_data_model import (
