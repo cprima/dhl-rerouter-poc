@@ -12,7 +12,7 @@ mailboxes:
     folders:
       - INBOX
       - foo
-    lookback_weeks: 4
+    lookback_days: 28
 
   - name: hotmail-graph-device
     type: msgraph
@@ -25,7 +25,7 @@ mailboxes:
     folders:
       - INBOX
       - bar/tests
-    lookback_weeks: 2
+    lookback_days: 2
 
   - name: hotmail-graph-secret
     type: msgraph
@@ -38,7 +38,7 @@ mailboxes:
       token_cache: msal_cache.bin
     folders:
       - INBOX
-    lookback_weeks: 2
+    lookback_days: 2
 
   - name: hotmail-graph-cert
     type: msgraph
@@ -51,7 +51,7 @@ mailboxes:
       token_cache: msal_cache.bin
     folders:
       - INBOX
-    lookback_weeks: 2
+    lookback_days: 2
 
 tracking_patterns:
   DHL:

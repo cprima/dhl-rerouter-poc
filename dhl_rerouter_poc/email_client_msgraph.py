@@ -19,7 +19,7 @@ class EmailClientMsGraph:
         self.user = cfg["user"]
         self.access = cfg["access"]
         self.folders = cfg.get("folders", ["INBOX"])
-        self.lookback = cfg.get("lookback_weeks", 2)
+        self.lookback = cfg["lookback_days"]
         self.session = self._authenticate(self.access)
 
     def _authenticate(self, access: dict):

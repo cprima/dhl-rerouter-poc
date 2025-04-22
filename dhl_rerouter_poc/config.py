@@ -46,6 +46,14 @@ def load_config() -> dict:
             if not pass_val:
                 raise RuntimeError(f"Missing environment variable: {pass_env} for mailbox '{mbox.get('name','?')}'")
             mbox["password"] = pass_val
+        # --- Lookback days logic (canonical) ---
+        if "lookback_days" in mbox:
+            pass  # already set
+        elif "lookback_hours" in mbox:  # undocumented easter egg
+            mbox["lookback_days"] = int(mbox["lookback_hours"]) // 24
+            mbox.pop("lookback_hours")
+        else:
+            mbox["lookback_days"] = 1
     cfg["mailboxes"] = mailboxes
 
     # Attach merged carrier configs for each carrier

@@ -49,7 +49,7 @@ def reroute_shipment(
 
 
 def run(
-    lookback_weeks: int | None = None,
+    lookback_days: int | None = None,
     zip_code: str | None = None,
     custom_location: str | None = None,
     highlight_only: bool = True,
@@ -77,8 +77,9 @@ def run(
         else:
             logger.warning(f"Unknown mailbox type '{mtype}' for mailbox '{mailbox.get('name','?')}', skipping.")
             continue
-        if lookback_weeks:
-            client.lookback = lookback_weeks
+        if lookback_days is not None:
+            mailbox["lookback_days"] = lookback_days
+        client.lookback = mailbox["lookback_days"]
         bodies = client.fetch_messages()
         all_bodies.extend(bodies)
 
@@ -208,11 +209,11 @@ def get_cli_defaults(config: dict) -> dict:
     Returns a dict of defaults for CLI arguments.
     """
     mailboxes = config.get("mailboxes", [])
-    weeks_default = mailboxes[0]["lookback_weeks"] if mailboxes and "lookback_weeks" in mailboxes[0] else None
+    days_default = mailboxes[0]["lookback_days"] if mailboxes and "lookback_days" in mailboxes[0] else 1
     carrier_configs = config.get("carrier_configs", {})
     dhl_cfg = carrier_configs.get("DHL", {})
     return {
-        "weeks": weeks_default,
+        "days": days_default,
         "zip_code": dhl_cfg.get("zip"),
         "custom_location": dhl_cfg.get("reroute_location"),
         "highlight_only": dhl_cfg.get("highlight_only", True),
@@ -228,9 +229,9 @@ def parse_cli_args(defaults: dict) -> argparse.Namespace:
     """
     p = argparse.ArgumentParser()
     p.add_argument(
-        "--weeks",
+        "--days",
         type=int,
-        help=f"Override lookback period (weeks back to search emails; overrides config if set) [default: {defaults['weeks']}]",
+        help=f"Override lookback period (days back to search emails; overrides config if set) [default: {defaults['days']}]",
     )
     p.add_argument(
         "--zip",
@@ -271,8 +272,8 @@ def validate_cli_args(args: argparse.Namespace) -> None:
         raise ValueError("A zip code must be provided via --zip or config.yaml under carriers:DHL:zip")
     if not args.custom_location:
         raise ValueError("A reroute location must be provided via --location or config.yaml under carriers:DHL:reroute_location")
-    if args.weeks is None:
-        raise ValueError("A lookback period must be provided via --weeks or config.yaml under email:lookback_weeks")
+    if args.days is None:
+        raise ValueError("A lookback period must be provided via --days or config.yaml under mailboxes:lookback_days")
 
 
 def main() -> None:
@@ -286,7 +287,7 @@ def main() -> None:
 
     validate_cli_args(args)
     run(
-        args.weeks,
+        args.days,
         args.zip_code,
         args.custom_location,
         args.highlight_only,

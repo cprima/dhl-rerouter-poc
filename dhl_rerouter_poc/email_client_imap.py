@@ -17,7 +17,7 @@ class ImapEmailClient:
     All IMAP operations are subject to a global socket timeout (default: 15 seconds).
     """
     REQUIRED_FIELDS = [
-        "host", "port", "folders", "lookback_weeks", "user", "password"
+        "host", "port", "folders", "lookback_days", "user", "password"
     ]
 
     def __init__(self, cfg: dict):
@@ -32,7 +32,7 @@ class ImapEmailClient:
         self.user: str = cfg["user"]
         self.pwd: str = cfg["password"]
         self.folders: list[str] = cfg["folders"]
-        self.lookback: int = cfg["lookback_weeks"]
+        self.lookback: int = cfg["lookback_days"]
 
     def fetch_messages(self, run_id: str | None = None):
         if run_id:
@@ -52,7 +52,7 @@ class ImapEmailClient:
             except Exception as e:
                 logger.error("IMAP login failed for user '%s': %s", self.user, e)
                 return []
-            cutoff = (datetime.now() - timedelta(weeks=self.lookback)).strftime("%d-%b-%Y")
+            cutoff = (datetime.now() - timedelta(days=self.lookback)).strftime("%d-%b-%Y")
             for folder in self.folders:
                 try:
                     status, _ = mail.select(f'"{folder}"', readonly=True)

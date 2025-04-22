@@ -109,6 +109,9 @@ To run tests, you need a test configuration file:
 4. `config_test.yaml` is gitignored and should never be committed.
 5. Tests will load `config_test.yaml` for their configuration, and always read credentials from the environment.
 
+### Example mailbox config
+
+# Note: The canonical lookback field is `lookback_days`. For advanced users, a hidden `lookback_hours` field is supported as an undocumented easter egg (integer division by 24). The CLI argument is `--days` and overrides all mailboxes.
 
 1. Copy and fill in your credentials:
    ```bash
@@ -123,7 +126,7 @@ You can run the main workflow with all arguments, or rely on config.yaml for def
 ### With explicit CLI arguments (overrides config):
 ```bash
 uv run -- python -m dhl_rerouter_poc.main \
-  --weeks 2 \
+  --days 14 \
   --zip 12345 \
   --location "My Office" \
   --highlight-only \
@@ -149,7 +152,7 @@ uv run -- python -m dhl_rerouter_poc.main --zip 38448 --highlight-only
 **Configurable Parameters:**
 | CLI Argument         | Config Key                        | Description                                             | Default (if any)         |
 |---------------------|-----------------------------------|---------------------------------------------------------|--------------------------|
-| `--weeks`           | `email.lookback_weeks`            | Lookback period in weeks for email search               | Required                 |
+| `--days`            | `email.lookback_days`            |Override lookback period (days back to search emails; overrides config if set)             | Required                 |
 | `--zip`             | `dhl.zip`                         | Postal code for DHL tracking page                       | Required                 |
 | `--location`        | `dhl.reroute_location`            | Custom drop‑off location text                           | Required                 |
 | `--highlight-only`  | `dhl.highlight_only`              | Only highlight the confirm button, do not click         | `True`                   |
