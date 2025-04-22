@@ -17,22 +17,36 @@ def merge_carrier_config(base: dict, specific: dict) -> dict:
     return merged
 
 
-def load_config():
+def load_config() -> dict:
+    """
+    Load and process the main YAML configuration file, injecting mailbox credentials
+    from environment variables as specified in each mailbox's access section.
+    Returns the full config dict with credentials included and carrier configs merged.
+    """
     config_path = Path(__file__).parent.parent / "config.yaml"
     if not config_path.exists():
         raise RuntimeError("config.yaml not found; copy config.yaml.example → config.yaml and fill in values")
 
-    # read with explicit UTF‑8 encoding
     text = config_path.read_text(encoding="utf-8")
     cfg = yaml.safe_load(text)
 
-    user = os.getenv("MAILBOX_USER")
-    pwd  = os.getenv("MAILBOX_PASS")
-    if not user or not pwd:
-        raise RuntimeError("Set MAILBOX_USER and MAILBOX_PASS in .env")
-
-    cfg["email"]["user"]     = user
-    cfg["email"]["password"] = pwd
+    mailboxes = cfg.get("mailboxes", [])
+    for mbox in mailboxes:
+        access = mbox.get("access", {})
+        user_env = access.get("user_env")
+        pass_env = access.get("pass_env")
+        # For ms_graph, only user_env is expected
+        if user_env:
+            user_val = os.getenv(user_env)
+            if not user_val:
+                raise RuntimeError(f"Missing environment variable: {user_env} for mailbox '{mbox.get('name','?')}'")
+            mbox["user"] = user_val
+        if pass_env:
+            pass_val = os.getenv(pass_env)
+            if not pass_val:
+                raise RuntimeError(f"Missing environment variable: {pass_env} for mailbox '{mbox.get('name','?')}'")
+            mbox["password"] = pass_val
+    cfg["mailboxes"] = mailboxes
 
     # Attach merged carrier configs for each carrier
     carriers = cfg.get("carriers", {})
@@ -43,3 +57,4 @@ def load_config():
             continue
         cfg["carrier_configs"][name] = merge_carrier_config(base_cfg, spec_cfg)
     return cfg
+

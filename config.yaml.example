@@ -1,14 +1,31 @@
-email:
-  # user and password are loaded from environment variables:
-  #   MAILBOX_USER, MAILBOX_PASS
-  host: imap.example.com
-  port: 993
-  ssl: true
-  folders:
-    - INBOX
-    - INBOX/pending
-    - Einkauf
-  lookback_weeks: 4
+mailboxes:
+  # Example: Multiple mailboxes supported
+  - name: personal
+    access:
+      type: imap
+      user_env: MAILBOX_USER
+      pass_env: MAILBOX_PASS
+      # Credentials loaded from MAILBOX_USER, MAILBOX_PASS
+    host: imap.example.com
+    port: 993
+    ssl: true
+    folders:
+      - INBOX
+      - foo
+    lookback_weeks: 4
+
+  - name: hotmail-graph
+    access:
+      type: ms_graph
+      method: device_code
+      user_env: HOTMAIL_MAILBOX_USER
+      client_id: 11111111-1111-1111-1111-111111111111
+      tenant_id: 00000000-0000-0000-0000-000000000000
+      token_cache: msal_cache.bin
+    folders:
+      - INBOX
+      - bar/tests
+    lookback_weeks: 2
 
 tracking_patterns:
   DHL:

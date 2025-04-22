@@ -43,6 +43,9 @@ env/
 .env
 .env.*.local
 
+# MSAL cache
+msal_cache.bin
+
 # macOS
 .DS_Store
 
