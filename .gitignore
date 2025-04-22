@@ -67,3 +67,8 @@ node_modules/
 # local config
 config.yaml
 config_test.yaml
+
+# todo remove
+RnD/*
+backlog_tasks.md
+mailbox_migration_checklist.md

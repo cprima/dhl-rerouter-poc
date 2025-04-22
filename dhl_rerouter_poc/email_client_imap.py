@@ -1,4 +1,4 @@
-# dhl_rerouter_poc/email_client.py
+# dhl_rerouter_poc/email_client_imap.py
 
 import imaplib
 import email
@@ -16,14 +16,23 @@ class ImapEmailClient:
     IMAP email client with robust error handling and explicit timeouts.
     All IMAP operations are subject to a global socket timeout (default: 15 seconds).
     """
+    REQUIRED_FIELDS = [
+        "host", "port", "folders", "lookback_weeks", "user", "password"
+    ]
+
     def __init__(self, cfg: dict):
-        self.host     = cfg["host"]
-        self.port     = cfg["port"]
-        self.ssl      = cfg.get("ssl", True)
-        self.user     = cfg["user"]
-        self.pwd      = cfg["password"]
-        self.folders  = cfg["folders"]
-        self.lookback = cfg["lookback_weeks"]
+        missing = [k for k in self.REQUIRED_FIELDS if k not in cfg]
+        if missing:
+            raise ValueError(
+                f"Missing required IMAP config fields: {missing} for mailbox '{cfg.get('name', '?')}'"
+            )
+        self.host: str = cfg["host"]
+        self.port: int = cfg["port"]
+        self.ssl: bool = cfg.get("ssl", True)
+        self.user: str = cfg["user"]
+        self.pwd: str = cfg["password"]
+        self.folders: list[str] = cfg["folders"]
+        self.lookback: int = cfg["lookback_weeks"]
 
     def fetch_messages(self, run_id: str | None = None):
         if run_id:

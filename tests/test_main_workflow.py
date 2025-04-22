@@ -49,7 +49,7 @@ def test_tracking_scenarios(scenario: RerouteTestScenario, test_config):
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patchers]
         main.run(
-            weeks=test_config["email"]["lookback_weeks"],
+            lookback_weeks=test_config["email"]["lookback_weeks"],
             zip_code=test_config["carrier_configs"]["DHL"]["zip"],
             custom_location=test_config["carrier_configs"]["DHL"]["reroute_location"],
             highlight_only=test_config["carrier_configs"]["DHL"].get("highlight_only", True),
