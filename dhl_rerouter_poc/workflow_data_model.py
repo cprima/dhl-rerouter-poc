@@ -37,12 +37,75 @@ class ShipmentTrackingInfo(BaseModel):
     delivered: bool
     delivery_date: Optional[str]  # ISO date
     delivery_status: Optional[str]
-    delivery_options: List[str]
-    shipment_history: List[str]
+    delivery_options: list[str]
+    shipment_history: list[str]
     custom_dropoff_input_present: bool
-    protocol: Dict[str, Any]
+    protocol: dict[str, Any]
     last_checked: Optional[str]
     status_code: Optional[int]  # HTTP/TCP style codes
+
+    @classmethod
+    def set_status(cls, delivery_status: str | None, delivery_date: str | None) -> str:
+        """
+        Determine the shipment status string based on delivery_status and delivery_date.
+        Returns one of: "delivered", "in_transit", "unknown", or "error".
+        """
+        if delivery_status:
+            import re
+            norm = delivery_status.strip().lower()
+            # DHL-specific: 'Order data transmitted electronically.' (with or without trailing period/whitespace) means in_transit
+            if re.fullmatch(r"order data transmitted electronically\.?", norm):
+                import logging
+                logging.getLogger("dhl_test").info("Matched DHL 'Order data transmitted electronically.' as in_transit")
+                return "in_transit"
+            if "delivery successful" in norm or "delivered" in norm:
+                return "delivered"
+            if "in transit" in norm:
+                return "in_transit"
+            if "error" in norm:
+                return "error"
+        if delivery_date:
+            # If date is in the past (and no explicit delivered status), may be delivered
+            from datetime import datetime
+            try:
+                dt = datetime.fromisoformat(delivery_date)
+                if dt < datetime.now(dt.tzinfo):
+                    return "delivered"
+            except Exception:
+                pass
+        return "unknown"
+
+    @classmethod
+    def from_extracted_data(
+        cls,
+        delivery_status: str | None,
+        parsed_date: str | None,
+        delivery_options: list[str],
+        shipment_history: list[str],
+        custom_dropoff_input_present: bool,
+        protocol: dict[str, Any],
+        last_checked: str | None = None,
+        status_code: int | None = None,
+    ) -> "ShipmentTrackingInfo":
+        """
+        Construct a ShipmentTrackingInfo instance from extracted page data.
+        Sets status using set_status, delivered as status == 'delivered', and delivery_date only if status is 'delivered'.
+        """
+        status = cls.set_status(delivery_status, parsed_date)
+        delivered = status == "delivered"
+        delivery_date = parsed_date if status == "delivered" else None
+        return cls(
+            status=status,
+            delivered=delivered,
+            delivery_date=delivery_date,
+            delivery_status=delivery_status,
+            delivery_options=delivery_options,
+            shipment_history=shipment_history,
+            custom_dropoff_input_present=custom_dropoff_input_present,
+            protocol=protocol,
+            last_checked=last_checked,
+            status_code=status_code,
+        )
 
 class AbsenceWindow(BaseModel):
     event_id: Optional[str]

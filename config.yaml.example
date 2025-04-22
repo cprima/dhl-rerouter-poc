@@ -82,5 +82,6 @@ carriers:
   DHL:
     reroute_location: "MyAlternativeLocation"
     zip: 12345
+    timezone: Europe/Berlin
     selenium_headless: true
     highlight_only: true    # if true, elements are only highlighted—not clicked

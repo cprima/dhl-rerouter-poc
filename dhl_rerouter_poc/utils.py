@@ -13,19 +13,55 @@ def get_cutoff_since_date(days: int) -> str:
     cutoff = (now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days))
     return cutoff.strftime("%d-%b-%Y")
 
-def parse_dhl_date(date_str: str) -> str | None:
+from typing import Optional
+from datetime import datetime
+import re
+import importlib
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo  # type: ignore
+
+
+def parse_dhl_date(date_str: str) -> Optional[str]:
     """
-    Parses strings like 'Tu, 22.04.2025' into ISO date '2025-04-22'.
-    Returns None on parse or weekday mismatch.
+    Parses DHL date strings like 'Tu, 22.04.2025, 12:23 hours' or 'Tu, 22.04.2025'.
+    Returns ISO 8601 string (e.g., '2025-04-22T12:23:00+02:00' or '2025-04-22'), or None on parse/weekday mismatch.
+    Timezone is loaded from config (carriers.DHL.timezone), defaults to 'Europe/Berlin'.
     """
     weekday_map = {"Mo": 0, "Tu": 1, "We": 2, "Th": 3, "Fr": 4, "Sa": 5, "Su": 6}
     try:
-        weekday_part, date_part = [s.strip() for s in date_str.split(",", 1)]
-        expected = weekday_map.get(weekday_part)
-        parsed = datetime.strptime(date_part, "%d.%m.%Y").date()
-        if expected is None or parsed.weekday() != expected:
+        # Lazy import to avoid circulars
+        config_mod = importlib.import_module("dhl_rerouter_poc.config")
+        cfg = config_mod.load_config()
+        tz_name = (
+            cfg.get("carrier_configs", {})
+              .get("DHL", {})
+              .get("timezone", "Europe/Berlin")
+        )
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = ZoneInfo("Europe/Berlin")
+
+    try:
+        parts = [s.strip() for s in date_str.split(",")]
+        if len(parts) < 2:
             return None
-        return parsed.isoformat()
+        weekday_part, date_part = parts[:2]
+        expected = weekday_map.get(weekday_part)
+        parsed_date = datetime.strptime(date_part, "%d.%m.%Y").date()
+        if expected is None or parsed_date.weekday() != expected:
+            return None
+        if len(parts) >= 3:
+            match = re.match(r"(\d{1,2}):(\d{2})", parts[2])
+            if match:
+                hour, minute = int(match.group(1)), int(match.group(2))
+                dt = datetime.combine(parsed_date, datetime.min.time()).replace(hour=hour, minute=minute)
+                dt = dt.replace(tzinfo=tz)
+                return dt.isoformat(timespec="seconds")
+        # If no time, return date only (no tz)
+        return parsed_date.isoformat()
     except Exception:
         return None
 
