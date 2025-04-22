@@ -1,6 +1,17 @@
 # dhl_rerouter_poc/utils.py
 
-from datetime import datetime
+from datetime import datetime, timedelta
+
+def get_cutoff_since_date(days: int) -> str:
+    """
+    Returns a cutoff date string (e.g. '21-Apr-2025') for IMAP/Graph queries,
+    given a lookback in days. 'days' means since midnight at the start of N days ago.
+    Example: if now is 2025-04-22T11:00 and days=1, cutoff is 2025-04-21 00:00.
+    Format: '%d-%b-%Y'.
+    """
+    now = datetime.now()
+    cutoff = (now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days))
+    return cutoff.strftime("%d-%b-%Y")
 
 def parse_dhl_date(date_str: str) -> str | None:
     """

@@ -1,27 +1,29 @@
 # dhl_rerouter_poc/main.py
 
 import argparse
-from .logging_utils import debug_log_model
 import logging
-from .email_client        import ImapEmailClient
-from .parser              import extract_tracking_codes
-from .calendar_checker    import should_reroute
+from .calendar_checker import should_reroute
+from .config import load_config
+from dhl_rerouter_poc.mail.email_client_imap import ImapEmailClient
+from dhl_rerouter_poc.mail.email_client_msgraph import EmailClientMsGraph
+from .logging_utils import debug_log_model
+from dhl_rerouter_poc.mail.parser import extract_tracking_codes, safe_decode
 from dhl_rerouter_poc.carriers.base import CarrierBase
 from dhl_rerouter_poc.carriers.dhl import DHLCarrier
-import logging
-from .config              import load_config
 from .workflow_data_model import (
-    ShipmentLifecycle,
-    TransportProviderInfo,
     ConsignmentNotification,
-    ShipmentTrackingInfo,
-    RecipientAvailability,
     DeliveryInterventionResult,
+    RecipientAvailability,
+    ShipmentLifecycle,
+    ShipmentTrackingInfo,
+    TransportProviderInfo,
 )
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("dhl_rerouter")
+
 
 def reroute_shipment(
     tracking_number: str,
@@ -29,7 +31,7 @@ def reroute_shipment(
     custom_location: str,
     highlight_only: bool = True,
     selenium_headless: bool = False,
-    timeout: int = 20
+    timeout: int = 20,
 ) -> bool:
     """
     Backward-compatible wrapper for reroute_shipment, for test mocking and legacy code.
@@ -42,22 +44,44 @@ def reroute_shipment(
         custom_location,
         highlight_only,
         selenium_headless,
-        timeout
+        timeout,
     )
 
+
 def run(
-    weeks: int | None = None,
+    lookback_days: int | None = None,
     zip_code: str | None = None,
     custom_location: str | None = None,
     highlight_only: bool = True,
     selenium_headless: bool = False,
     timeout: int = 20,
-    config: dict | None = None
+    config: dict | None = None,
 ) -> None:
-    client = ImapEmailClient(config["email"])
-    if weeks:
-        client.lookback = weeks
-    bodies = client.fetch_messages()
+    """
+    Main execution function.
+    """
+    logger = logging.getLogger(__name__)
+    mailboxes = config.get("mailboxes", [])
+    all_bodies = []
+
+    for mailbox in mailboxes:
+        mtype = mailbox.get("type")
+        if not mtype:
+            logger.warning(f"Mailbox '{mailbox.get('name','?')}' missing 'type', skipping.")
+            continue
+        mtype = mtype.lower()
+        if mtype == "imap":
+            client = ImapEmailClient(mailbox)
+        elif mtype == "msgraph":
+            client = EmailClientMsGraph(mailbox)
+        else:
+            logger.warning(f"Unknown mailbox type '{mtype}' for mailbox '{mailbox.get('name','?')}', skipping.")
+            continue
+        if lookback_days is not None:
+            mailbox["lookback_days"] = lookback_days
+        client.lookback = mailbox["lookback_days"]
+        bodies = client.fetch_messages()
+        all_bodies.extend(bodies)
 
     seen: set[str] = set()
     carrier_registry: dict[str, type[CarrierBase]] = {
@@ -66,14 +90,13 @@ def run(
     }
     logger = logging.getLogger(__name__)
     carrier_configs: dict = config.get("carrier_configs", {})
-    for body in bodies:
+    for body in all_bodies:
         codes = extract_tracking_codes(body, config["tracking_patterns"])
         for code, carrier in sorted(codes.items()):
             if code in seen:
                 continue
             seen.add(code)
             logger.info(f"Going to process tracking code: %s (carrier: %s)", code, carrier)
-            # --- Build ShipmentLifecycle context ---
 
             # --- Build ShipmentLifecycle context ---
             shipment = ShipmentLifecycle(
@@ -97,8 +120,12 @@ def run(
             carrier_cfg = carrier_configs.get(carrier, {})
             carrier_zip = zip_code or carrier_cfg.get("zip")
             carrier_location = custom_location or carrier_cfg.get("reroute_location")
-            carrier_highlight = highlight_only if highlight_only is not None else carrier_cfg.get("highlight_only", True)
-            carrier_headless = selenium_headless if selenium_headless is not None else carrier_cfg.get("selenium_headless", True)
+            carrier_highlight = (
+                highlight_only if highlight_only is not None else carrier_cfg.get("highlight_only", True)
+            )
+            carrier_headless = (
+                selenium_headless if selenium_headless is not None else carrier_cfg.get("selenium_headless", True)
+            )
             carrier_timeout = timeout if timeout is not None else carrier_cfg.get("timeout", 20)
 
             # --- Tracking info (via handler) ---
@@ -106,7 +133,7 @@ def run(
                 code,
                 carrier_zip,
                 timeout=carrier_timeout,
-                selenium_headless=carrier_headless
+                selenium_headless=carrier_headless,
             )
             shipment.tracking = ShipmentTrackingInfo(
                 status=info.data.get("delivery_status", "unknown"),
@@ -122,8 +149,8 @@ def run(
             )
             debug_log_model(shipment, "after tracking")
             date_iso = shipment.tracking.delivery_date
-            opts     = shipment.tracking.delivery_options
-            errors   = shipment.tracking.protocol.get("errors", [])
+            opts = shipment.tracking.delivery_options
+            errors = shipment.tracking.protocol.get("errors", [])
 
             if errors:
                 logger.warning(f"  ⚠️ encountered errors: {errors}")
@@ -156,11 +183,9 @@ def run(
             logger.info(f"  → performing reroute (highlight_only={carrier_highlight})")
             # Use main.reroute_shipment wrapper to allow test patching
             from dhl_rerouter_poc import main as main_mod
+
             success = main_mod.reroute_shipment(
-                code, carrier_zip, carrier_location,
-                carrier_highlight,
-                selenium_headless,
-                timeout
+                code, carrier_zip, carrier_location, carrier_highlight, selenium_headless, timeout
             )
             shipment.intervention = DeliveryInterventionResult(
                 attempted=True,
@@ -173,62 +198,104 @@ def run(
             )
             debug_log_model(shipment, "after intervention")
             logger.info(f"  → reroute {'✅' if success else '❌'}")
-            logger.debug(f"Finished processing tracking code: %s (carrier: %s) [run_id=%s]", code, carrier, shipment.run_id)
+            logger.debug(
+                f"Finished processing tracking code: %s (carrier: %s) [run_id=%s]", code, carrier, shipment.run_id
+            )
 
-def main():
-    config = load_config()
-    weeks_default = config.get("email", {}).get("lookback_weeks")
+
+def get_cli_defaults(config: dict) -> dict:
+    """
+    Extracts CLI default values from the loaded config dict in a single place.
+    Returns a dict of defaults for CLI arguments.
+    """
+    mailboxes = config.get("mailboxes", [])
+    days_default = mailboxes[0]["lookback_days"] if mailboxes and "lookback_days" in mailboxes[0] else 1
     carrier_configs = config.get("carrier_configs", {})
     dhl_cfg = carrier_configs.get("DHL", {})
-    zip_default = dhl_cfg.get("zip")
-    location_default = dhl_cfg.get("reroute_location")
-    highlight_default = dhl_cfg.get("highlight_only", True)
-    selenium_headless_default = dhl_cfg.get("selenium_headless", True)
-    timeout_default = dhl_cfg.get("timeout", 20)
+    return {
+        "days": days_default,
+        "zip_code": dhl_cfg.get("zip"),
+        "custom_location": dhl_cfg.get("reroute_location"),
+        "highlight_only": dhl_cfg.get("highlight_only", True),
+        "selenium_headless": dhl_cfg.get("selenium_headless", True),
+        "timeout": dhl_cfg.get("timeout", 20),
+    }
 
+
+def parse_cli_args(defaults: dict) -> argparse.Namespace:
+    """
+    Parses CLI arguments for the DHL rerouter, using provided defaults.
+    Returns the parsed argparse.Namespace.
+    """
     p = argparse.ArgumentParser()
     p.add_argument(
-        "--weeks", type=int,
-        help=f"Override lookback period (weeks back to search emails; overrides config if set) [default: {weeks_default}]"
+        "--days",
+        type=int,
+        help=f"Override lookback period (days back to search emails; overrides config if set) [default: {defaults['days']}]",
     )
     p.add_argument(
-        "--zip", dest="zip_code", required=False,
-        help=f"Postal code for DHL tracking page (overrides config if set) [default: {zip_default}]"
+        "--zip",
+        dest="zip_code",
+        required=False,
+        help=f"Postal code for DHL tracking page (overrides config if set) [default: {defaults['zip_code']}]",
     )
     p.add_argument(
-        "--location", dest="custom_location", required=False,
-        help=f"Custom drop‑off location text (overrides config if set) [default: {location_default}]"
+        "--location",
+        dest="custom_location",
+        required=False,
+        help=f"Custom drop‑off location text (overrides config if set) [default: {defaults['custom_location']}]",
     )
-    p.set_defaults(
-        weeks=weeks_default,
-        zip_code=zip_default,
-        custom_location=location_default,
-        highlight_only=highlight_default,
-        selenium_headless=selenium_headless_default,
-        timeout=timeout_default
+    p.set_defaults(**defaults)
+    p.add_argument(
+        "--highlight-only",
+        action="store_true",
+        help=f"Highlight only, do not click confirm (overrides config) [default: {defaults['highlight_only']}]",
     )
     p.add_argument(
-        "--highlight-only", action="store_true", help=f"Highlight only, do not click confirm (overrides config) [default: {highlight_default}]"
+        "--selenium-headless",
+        action="store_true",
+        help=f"Run Selenium in headless mode (overrides config) [default: {defaults['selenium_headless']}]",
     )
     p.add_argument(
-        "--selenium-headless", action="store_true", help=f"Run Selenium in headless mode (overrides config) [default: {selenium_headless_default}]"
+        "--timeout",
+        type=int,
+        help=f"Timeout for Selenium waits (overrides config) [default: {defaults['timeout']}]",
     )
-    p.add_argument(
-        "--timeout", type=int, help=f"Timeout for Selenium waits (overrides config) [default: {timeout_default}]"
-    )
-    args = p.parse_args()
-    # CLI always takes precedence if explicitly set
-    highlight_only = args.highlight_only if 'highlight_only' in args else highlight_default
-    selenium_headless = args.selenium_headless if 'selenium_headless' in args else selenium_headless_default
-    timeout = args.timeout if args.timeout is not None else timeout_default
-    # Validate required parameters
+    return p.parse_args()
+
+
+def validate_cli_args(args: argparse.Namespace) -> None:
+    """
+    Validates required CLI arguments and raises ValueError with clear message if missing.
+    """
     if not args.zip_code:
         raise ValueError("A zip code must be provided via --zip or config.yaml under carriers:DHL:zip")
     if not args.custom_location:
         raise ValueError("A reroute location must be provided via --location or config.yaml under carriers:DHL:reroute_location")
-    if args.weeks is None:
-        raise ValueError("A lookback period must be provided via --weeks or config.yaml under email:lookback_weeks")
-    run(args.weeks, args.zip_code, args.custom_location, highlight_only, selenium_headless, timeout, config)
+    if args.days is None:
+        raise ValueError("A lookback period must be provided via --days or config.yaml under mailboxes:lookback_days")
+
+
+def main() -> None:
+    """
+    Entry point for DHL rerouter automation. Loads config and sets CLI defaults
+    based on the new multi-mailbox structure. Carrier config logic is preserved.
+    """
+    config = load_config()
+    defaults = get_cli_defaults(config)
+    args = parse_cli_args(defaults)
+
+    validate_cli_args(args)
+    run(
+        args.days,
+        args.zip_code,
+        args.custom_location,
+        args.highlight_only,
+        args.selenium_headless,
+        args.timeout,
+        config,
+    )
+
 
 if __name__ == "__main__":
     main()

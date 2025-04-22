@@ -43,6 +43,9 @@ env/
 .env
 .env.*.local
 
+# MSAL cache
+msal_cache.bin
+
 # macOS
 .DS_Store
 
@@ -64,3 +67,8 @@ node_modules/
 # local config
 config.yaml
 config_test.yaml
+
+# todo remove
+RnD/*
+backlog_tasks.md
+mailbox_migration_checklist.md

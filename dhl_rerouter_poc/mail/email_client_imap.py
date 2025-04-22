@@ -1,8 +1,9 @@
-# dhl_rerouter_poc/email_client.py
+# dhl_rerouter_poc/email_client_imap.py
 
 import imaplib
 import email
-from datetime import datetime, timedelta
+from datetime import datetime
+from dhl_rerouter_poc.utils import get_cutoff_since_date
 from .parser import safe_decode, strip_html
 
 import socket
@@ -16,14 +17,23 @@ class ImapEmailClient:
     IMAP email client with robust error handling and explicit timeouts.
     All IMAP operations are subject to a global socket timeout (default: 15 seconds).
     """
+    REQUIRED_FIELDS = [
+        "host", "port", "folders", "lookback_days", "user", "password"
+    ]
+
     def __init__(self, cfg: dict):
-        self.host     = cfg["host"]
-        self.port     = cfg["port"]
-        self.ssl      = cfg.get("ssl", True)
-        self.user     = cfg["user"]
-        self.pwd      = cfg["password"]
-        self.folders  = cfg["folders"]
-        self.lookback = cfg["lookback_weeks"]
+        missing = [k for k in self.REQUIRED_FIELDS if k not in cfg]
+        if missing:
+            raise ValueError(
+                f"Missing required IMAP config fields: {missing} for mailbox '{cfg.get('name', '?')}'"
+            )
+        self.host: str = cfg["host"]
+        self.port: int = cfg["port"]
+        self.ssl: bool = cfg.get("ssl", True)
+        self.user: str = cfg["user"]
+        self.pwd: str = cfg["password"]
+        self.folders: list[str] = cfg["folders"]
+        self.lookback: int = cfg["lookback_days"]
 
     def fetch_messages(self, run_id: str | None = None):
         if run_id:
@@ -43,7 +53,7 @@ class ImapEmailClient:
             except Exception as e:
                 logger.error("IMAP login failed for user '%s': %s", self.user, e)
                 return []
-            cutoff = (datetime.now() - timedelta(weeks=self.lookback)).strftime("%d-%b-%Y")
+            cutoff = get_cutoff_since_date(self.lookback)
             for folder in self.folders:
                 try:
                     status, _ = mail.select(f'"{folder}"', readonly=True)
@@ -62,14 +72,18 @@ class ImapEmailClient:
                         try:
                             _, fetched = mail.fetch(num, "(RFC822)")
                             msg = email.message_from_bytes(fetched[0][1])
-                            body = ""
                             if msg.is_multipart():
+                                text_part = None
+                                html_part = None
                                 for part in msg.walk():
                                     ctype = part.get_content_type()
-                                    if ctype in ("text/plain", "text/html"):
+                                    if ctype == "text/plain" and text_part is None:
                                         ch = part.get_content_charset() or "utf-8"
-                                        txt = safe_decode(part.get_payload(decode=True), ch)
-                                        body += strip_html(txt) if ctype == "text/html" else txt
+                                        text_part = safe_decode(part.get_payload(decode=True), ch)
+                                    elif ctype == "text/html" and html_part is None:
+                                        ch = part.get_content_charset() or "utf-8"
+                                        html_part = strip_html(safe_decode(part.get_payload(decode=True), ch))
+                                body = text_part if text_part is not None else (html_part if html_part is not None else "")
                             else:
                                 ch = msg.get_content_charset() or "utf-8"
                                 body = safe_decode(msg.get_payload(decode=True), ch)
